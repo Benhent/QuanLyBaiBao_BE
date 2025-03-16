@@ -21,8 +21,8 @@ const PORT = process.env.PORT;
 
 // Xác định URL dựa trên môi trường
 const serverUrl = process.env.NODE_ENV === 'production' 
-  ? process.env.VERCEL_URL || 'https://your-app-name.vercel.app' 
-  : `http://localhost:${PORT}`;
+  ? process.env.VERCEL_URL
+  : process.env.CLIENT_URL;
 
 // Thêm protocol nếu VERCEL_URL không có
 const fullServerUrl = serverUrl.startsWith('http') 
@@ -82,7 +82,7 @@ const swaggerOptions = {
       description: 'API for managing academic content and author requests',
       contact: {
         name: 'API Support',
-        email: 'support@example.com',
+        email: 'bknguyen06062003@gmail.com',
       },
     },
     servers: [
