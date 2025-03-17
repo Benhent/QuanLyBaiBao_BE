@@ -40,217 +40,6 @@ router.get("/check-auth", verifyToken, checkAuth);
 
 /**
  * @swagger
- * /api/auth/me:
- *   get:
- *     summary: Lấy thông tin người dùng hiện tại
- *     tags: [Authentication]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Thông tin người dùng
- *       401:
- *         description: Chưa đăng nhập
- */
-router.get("/me", verifyToken, getCurrentUser);
-
-/**
- * @swagger
- * /api/auth/signup:
- *   post:
- *     summary: Đăng ký tài khoản mới
- *     tags: [Authentication]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - username
- *               - email
- *               - password
- *             properties:
- *               username:
- *                 type: string
- *               email:
- *                 type: string
- *                 format: email
- *               password:
- *                 type: string
- *                 format: password
- *               firstName:
- *                 type: string
- *               lastName:
- *                 type: string
- *     responses:
- *       201:
- *         description: Đăng ký thành công
- *       400:
- *         description: Dữ liệu không hợp lệ
- */
-router.post("/signup", signup);
-
-/**
- * @swagger
- * /api/auth/login:
- *   post:
- *     summary: Đăng nhập
- *     tags: [Authentication]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - email
- *               - password
- *             properties:
- *               email:
- *                 type: string
- *                 format: email
- *               password:
- *                 type: string
- *                 format: password
- *     responses:
- *       200:
- *         description: Đăng nhập thành công
- *       401:
- *         description: Thông tin đăng nhập không chính xác
- */
-router.post("/login", login);
-
-/**
- * @swagger
- * /api/auth/logout:
- *   post:
- *     summary: Đăng xuất
- *     tags: [Authentication]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Đăng xuất thành công
- */
-router.post("/logout", verifyToken, logout);
-
-/**
- * @swagger
- * /api/auth/verify-email:
- *   post:
- *     summary: Xác thực email
- *     tags: [Authentication]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - email
- *               - code
- *             properties:
- *               email:
- *                 type: string
- *                 format: email
- *               code:
- *                 type: string
- *     responses:
- *       200:
- *         description: Email đã được xác thực thành công
- *       400:
- *         description: Mã xác thực không hợp lệ
- */
-router.post("/verify-email", verifyEmail);
-
-/**
- * @swagger
- * /api/auth/resend-verification:
- *   post:
- *     summary: Gửi lại mã xác thực
- *     tags: [Authentication]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - email
- *             properties:
- *               email:
- *                 type: string
- *                 format: email
- *     responses:
- *       200:
- *         description: Mã xác thực mới đã được gửi
- *       404:
- *         description: Không tìm thấy người dùng
- */
-router.post("/resend-verification", resendVerification);
-
-/**
- * @swagger
- * /api/auth/forgot-password:
- *   post:
- *     summary: Yêu cầu đặt lại mật khẩu
- *     tags: [Authentication]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - email
- *             properties:
- *               email:
- *                 type: string
- *                 format: email
- *     responses:
- *       200:
- *         description: Email đặt lại mật khẩu đã được gửi
- *       404:
- *         description: Không tìm thấy email
- */
-router.post("/forgot-password", forgotPassword);
-
-/**
- * @swagger
- * /api/auth/reset-password/{token}:
- *   post:
- *     summary: Đặt lại mật khẩu
- *     tags: [Authentication]
- *     parameters:
- *       - in: path
- *         name: token
- *         required: true
- *         schema:
- *           type: string
- *         description: Token đặt lại mật khẩu
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - password
- *             properties:
- *               password:
- *                 type: string
- *                 format: password
- *     responses:
- *       200:
- *         description: Mật khẩu đã được đặt lại thành công
- *       400:
- *         description: Token không hợp lệ hoặc đã hết hạn
- */
-router.post("/reset-password/:token", resetPassword);
-
-/**
- * @swagger
  * /api/auth/check-username:
  *   get:
  *     summary: Kiểm tra username đã tồn tại chưa
@@ -365,5 +154,213 @@ router.get("/check-email", async (req, res) => {
         });
     }
 });
+
+/**
+ * @swagger
+ * /api/auth/me:
+ *   get:
+ *     summary: Lấy thông tin người dùng hiện tại
+ *     tags: [Authentication]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Thông tin người dùng
+ *       401:
+ *         description: Chưa đăng nhập
+ */
+router.get("/me", verifyToken, getCurrentUser);
+
+/**
+ * @swagger
+ * /api/auth/signup:
+ *   post:
+ *     summary: Đăng ký tài khoản mới
+ *     tags: [Authentication]
+ *     parameters:
+ *       - in: query
+ *         name: username
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Tên người dùng
+ *       - in: query
+ *         name: email
+ *         schema:
+ *           type: string
+ *           format: email
+ *         required: true
+ *         description: Email đăng ký
+ *       - in: query
+ *         name: password
+ *         schema:
+ *           type: string
+ *           format: password
+ *         required: true
+ *         description: Mật khẩu
+ *       - in: query
+ *         name: firstName
+ *         schema:
+ *           type: string
+ *         description: Tên
+ *       - in: query
+ *         name: lastName
+ *         schema:
+ *           type: string
+ *         description: Họ
+ *     responses:
+ *       201:
+ *         description: Đăng ký thành công
+ *       400:
+ *         description: Dữ liệu không hợp lệ
+ */
+router.post("/signup", signup);
+
+/**
+ * @swagger
+ * /api/auth/login:
+ *   post:
+ *     summary: Đăng nhập
+ *     tags: [Authentication]
+ *     parameters:
+ *       - in: query
+ *         name: email
+ *         schema:
+ *           type: string
+ *           format: email
+ *         required: true
+ *         description: Email của người dùng
+ *       - in: query
+ *         name: password
+ *         schema:
+ *           type: string
+ *           format: password
+ *         required: true
+ *         description: Mật khẩu của người dùng
+ *     responses:
+ *       200:
+ *         description: Đăng nhập thành công
+ *       401:
+ *         description: Thông tin đăng nhập không chính xác
+ */
+router.post("/login", login);
+
+/**
+ * @swagger
+ * /api/auth/logout:
+ *   post:
+ *     summary: Đăng xuất
+ *     tags: [Authentication]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Đăng xuất thành công
+ */
+router.post("/logout", verifyToken, logout);
+
+/**
+ * @swagger
+ * /api/auth/verify-email:
+ *   post:
+ *     summary: Xác thực email
+ *     tags: [Authentication]
+ *     parameters:
+ *       - in: query
+ *         name: email
+ *         schema:
+ *           type: string
+ *           format: email
+ *         required: true
+ *         description: Email cần xác thực
+ *       - in: query
+ *         name: code
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Mã xác thực
+ *     responses:
+ *       200:
+ *         description: Email đã được xác thực thành công
+ *       400:
+ *         description: Mã xác thực không hợp lệ
+ */
+router.post("/verify-email", verifyEmail);
+
+/**
+ * @swagger
+ * /api/auth/resend-verification:
+ *   post:
+ *     summary: Gửi lại mã xác thực
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *     responses:
+ *       200:
+ *         description: Mã xác thực mới đã được gửi
+ *       404:
+ *         description: Không tìm thấy người dùng
+ */
+router.post("/resend-verification", resendVerification);
+
+/**
+ * @swagger
+ * /api/auth/forgot-password:
+ *   post:
+ *     summary: Yêu cầu đặt lại mật khẩu
+ *     tags: [Authentication]
+ *     parameters:
+ *       - in: query
+ *         name: email
+ *         schema:
+ *           type: string
+ *           format: email
+ *         required: true
+ *         description: Email cần đặt lại mật khẩu
+ *     responses:
+ *       200:
+ *         description: Email đặt lại mật khẩu đã được gửi
+ *       404:
+ *         description: Không tìm thấy email
+ */
+router.post("/forgot-password", forgotPassword);
+
+/**
+ * @swagger
+ * /api/auth/reset-password:
+ *   post:
+ *     summary: Đặt lại mật khẩu
+ *     tags: [Authentication]
+ *     parameters:
+ *       - in: query
+ *         name: token
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Token đặt lại mật khẩu
+ *       - in: query
+ *         name: password
+ *         schema:
+ *           type: string
+ *           format: password
+ *         required: true
+ *         description: Mật khẩu mới
+ *     responses:
+ *       200:
+ *         description: Mật khẩu đã được đặt lại thành công
+ *       400:
+ *         description: Token không hợp lệ hoặc đã hết hạn
+ */
+router.post("/reset-password/:token", resetPassword);
 
 export default router;
