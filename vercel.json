@@ -6,22 +6,22 @@
       "use": "@vercel/node"
     }
   ],
-  "routes": [
+  "rewrites": [
     {
-      "src": "/api-docs/(.*)",
-      "dest": "index.js"
+      "source": "/api-docs/(.*)",
+      "destination": "/index.js"
     },
     {
-      "src": "/swagger.json",
-      "dest": "index.js"
+      "source": "/swagger.json",
+      "destination": "/index.js"
     },
     {
-      "src": "/api/(.*)",
-      "dest": "index.js"
+      "source": "/api/(.*)",
+      "destination": "/index.js"
     },
     {
-      "src": "/(.*)",
-      "dest": "index.js"
+      "source": "/(.*)",
+      "destination": "/index.js"
     }
   ],
   "headers": [
