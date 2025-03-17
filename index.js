@@ -89,6 +89,10 @@ const swaggerOptions = {
       {
         url: fullServerUrl,
         description: process.env.NODE_ENV === 'production' ? 'Production server' : 'Development server'
+      },
+      {
+        url: '/api',
+        description: 'Relative path for API endpoints'
       }
     ],
     components: {
