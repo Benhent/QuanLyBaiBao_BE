@@ -4,7 +4,7 @@ import {
     sendWelcomeEmail, 
     sendPasswordResetEmail, 
     sendResetSuccessEmail 
-} from '../email.js';
+} from '../mail/email.js';
 import { generateVerificationCode } from '../utils/generateVerificationCode.js';
 import crypto from 'crypto';
 
