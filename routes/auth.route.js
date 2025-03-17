@@ -209,10 +209,6 @@ router.post("/resend-verification", resendVerification);
  *                 type: string
  *                 format: email
  *     responses:
- *       200: 
- *                 type: string
- *                 format: email
- *     responses:
  *       200:
  *         description: Email đặt lại mật khẩu đã được gửi
  *       404:
