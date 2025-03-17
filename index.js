@@ -89,6 +89,11 @@ app.get("/api/health", (req, res) => {
   res.status(200).json({ status: "OK", environment: process.env.NODE_ENV });
 });
 
+// Route cho đường dẫn gốc
+app.get("/", (req, res) => {
+  res.status(200).json({ message: "Welcome to the API" });
+});
+
 // Routes
 app.use("/api/auth", authRoutes);
 
