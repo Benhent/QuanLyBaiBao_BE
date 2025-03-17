@@ -1,46 +1,32 @@
-export const isAdmin = (req, res, next) => {
-    // Đảm bảo middleware verifyToken đã chạy trước
+export const checkRole = (allowedRoles) => {
+  return (req, res, next) => {
+    // Kiểm tra xem middleware verifyToken đã chạy chưa
     if (!req.user) {
       return res.status(401).json({
         error: 'Không có quyền',
-        message: 'Yêu cầu xác thực'
+        message: 'Bạn cần đăng nhập để thực hiện hành động này.'
       });
     }
-  
-    // Kiểm tra xem người dùng có vai trò admin không
-    if (req.user.role !== 'admin') {
+
+    // Chuyển đổi vai trò đơn lẻ thành mảng (nếu cần)
+    const rolesArray = Array.isArray(allowedRoles) ? allowedRoles : [allowedRoles];
+
+    // Kiểm tra quyền
+    if (!rolesArray.includes(req.user.role)) {
+      console.warn(`Người dùng ${req.user.id} bị từ chối quyền truy cập! Vai trò yêu cầu: ${rolesArray.join(', ')}, nhưng vai trò hiện tại: ${req.user.role}`);
       return res.status(403).json({
         error: 'Không được phép',
-        message: 'Yêu cầu quyền quản trị'
+        message: `Bạn cần có quyền: ${rolesArray.join(' hoặc ')} để thực hiện hành động này.`
       });
     }
-  
-    // Người dùng là admin thì tiếp tục xử lý
+
+    // Người dùng hợp lệ, tiếp tục
     next();
   };
+};
 
-  export const hasRole = (roles) => {
-    // Chuyển đổi vai trò đơn lẻ thành mảng để xử lý nhất quán
-    const allowedRoles = Array.isArray(roles) ? roles : [roles];
-    
-    return (req, res, next) => {
-      // Đảm bảo middleware verifyToken đã chạy trước
-      if (!req.user) {
-        return res.status(401).json({
-          error: 'Không có quyền',
-          message: 'Yêu cầu xác thực'
-        });
-      }
-  
-      // Kiểm tra xem người dùng có bất kỳ vai trò nào được yêu cầu không
-      if (!allowedRoles.includes(req.user.role)) {
-        return res.status(403).json({
-          error: 'Không đươc phép',
-          message: `Yêu cầu quyền: ${allowedRoles.join(' or ')}`
-        });
-      }
-  
-      // Người dùng có vai trò được phép, tiếp tục
-      next();
-    };
-  };
+// Middleware dành riêng cho admin
+export const isAdmin = checkRole('admin');
+
+// Middleware kiểm tra nhiều vai trò
+export const hasRole = (roles) => checkRole(roles);

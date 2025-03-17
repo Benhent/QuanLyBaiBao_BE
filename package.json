@@ -10,7 +10,7 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "module", 
+  "type": "module",
   "description": "",
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",
@@ -21,8 +21,13 @@
     "crypto": "^1.0.1",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
     "express-session": "^1.18.1",
+    "helmet": "^8.0.0",
     "jsonwebtoken": "^9.0.2",
-    "passport": "^0.7.0"
+    "mailtrap": "^4.0.0",
+    "passport": "^0.7.0",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1"
   }
 }

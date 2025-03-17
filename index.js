@@ -9,8 +9,8 @@ import rateLimit from 'express-rate-limit';
 import swaggerJsdoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
 import { connectDB } from "./db/connectDB.js";
-import { verifyToken, refreshToken } from './middleware/verifyToken.js';
-import { isAdmin, hasRole } from './middleware/isAdmin.js';
+// routes
+import authRoutes from './routes/auth.route.js';
 
 // Đọc biến môi trường từ file .env
 dotenv.config();
@@ -121,18 +121,6 @@ app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'OK', environment: process.env.NODE_ENV });
 });
 
-// Import các routes
-// import authRoutes from './routes/auth.js';
-// import userRoutes from './routes/users.js';
-// import authorRoutes from './routes/authors.js';
-// import contentRoutes from './routes/content.js';
-
-// Sử dụng các routes
-// app.use('/api/auth', authRoutes);
-// app.use('/api/users', verifyToken, userRoutes);
-// app.use('/api/authors', verifyToken, authorRoutes);
-// app.use('/api/content', contentRoutes);
-
 // Middleware xử lý lỗi 404
 app.use((req, res, next) => {
   res.status(404).json({
@@ -153,6 +141,8 @@ app.use((err, req, res, next) => {
     ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
   });
 });
+
+app.use('/api/auth', authRoutes);
 
 // Kết nối database và khởi động server
 connectDB().then(() => {
