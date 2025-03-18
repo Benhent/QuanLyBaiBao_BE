@@ -333,7 +333,7 @@ export const resendVerification = async (req, res) => {
  */
 export const login = async (req, res) => {
     try {
-        const { email, password } = req.query;
+        const { email, password } = req.body;
 
         // Kiểm tra dữ liệu đầu vào
         if (!email || !password) {
