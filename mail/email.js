@@ -1,15 +1,12 @@
 import { mailtrapClient, sender } from "./mailtrap.config.js";
 import { 
     VERIFICATION_EMAIL_TEMPLATE, 
-    WELCOME_EMAIL_TEMPLATE, 
-    PASSWORD_RESET_REQUEST_TEMPLATE, 
-    PASSWORD_RESET_SUCCESS_TEMPLATE, 
-    REJECT_AUTHOR_TEMPLATE 
+    PASSWORD_RESET_REQUEST_TEMPLATE,
+    APPROVE_AUTHOR_TEMPLATE, 
+    REJECT_AUTHOR_TEMPLATE
 } from "./emailTemplates.js";
 
-/**
- * Gửi email xác thực tài khoản
- */
+// gửi email xác thực tài khoản
 export const sendVerificationEmail = async (email, verificationCode) => {
     const recipient = [{ email }];
 
@@ -31,61 +28,7 @@ export const sendVerificationEmail = async (email, verificationCode) => {
     }
 };
 
-/**
- * Gửi email chào mừng khi đăng ký thành công
- */
-export const sendWelcomeEmail = async (email, username, dashboardURL) => {
-    const recipient = [{ email }];
-
-    try {
-        const htmlContent = WELCOME_EMAIL_TEMPLATE
-            .replace("{username}", username)
-            .replace("{dashboardURL}", dashboardURL);
-
-        const response = await mailtrapClient.send({
-            from: sender,
-            to: recipient,
-            subject: "Welcome to Our Platform!",
-            html: htmlContent,
-            category: "Welcome Email",
-        });
-
-        console.log("Welcome email sent successfully:", response);
-    } catch (error) {
-        console.error("Error sending welcome email:", error);
-        throw new Error(`Error sending welcome email: ${error}`);
-    }
-};
-
-/**
- * Gửi email từ chối yêu cầu đăng ký tác giả
- */
-export const sendRejectAuthorEmail = async (email, username, rejectionReason) => {
-    const recipient = [{ email }];
-
-    try {
-        const htmlContent = REJECT_AUTHOR_TEMPLATE
-            .replace("{username}", username)
-            .replace("{rejectionReason}", rejectionReason);
-
-        const response = await mailtrapClient.send({
-            from: sender,
-            to: recipient,
-            subject: "Author Application Rejected",
-            html: htmlContent,
-            category: "Rejection Email",
-        });
-
-        console.log("Rejection email sent successfully:", response);
-    } catch (error) {
-        console.error("Error sending rejection email:", error);
-        throw new Error(`Error sending rejection email: ${error}`);
-    }
-};
-
-/**
- * Gửi email yêu cầu đặt lại mật khẩu
- */
+// gửi yêu cầu đặt lại mật khẩu
 export const sendPasswordResetEmail = async (email, resetURL) => {
     const recipient = [{ email }];
 
@@ -107,24 +50,48 @@ export const sendPasswordResetEmail = async (email, resetURL) => {
     }
 };
 
-/**
- * Gửi email xác nhận đặt lại mật khẩu thành công
- */
-export const sendResetSuccessEmail = async (email) => {
+// gửi email thông báo chấp nhận yêu cầu làm tác giả
+export const sendAuthorApprovalEmail = async (email, firstName, loginURL) => {
     const recipient = [{ email }];
 
     try {
+        let htmlContent = APPROVE_AUTHOR_TEMPLATE.replace("{firstName}", firstName);
+        htmlContent = htmlContent.replace("{loginURL}", loginURL);
+
         const response = await mailtrapClient.send({
             from: sender,
             to: recipient,
-            subject: "Password Reset Successful",
-            html: PASSWORD_RESET_SUCCESS_TEMPLATE,
-            category: "Password Reset",
+            subject: "Your Author Request Has Been Approved",
+            html: htmlContent,
+            category: "Author Approval",
         });
 
-        console.log("Password reset success email sent successfully:", response);
+        console.log("Author approval email sent successfully:", response);
     } catch (error) {
-        console.error("Error sending password reset success email:", error);
-        throw new Error(`Error sending password reset success email: ${error}`);
+        console.error("Error sending author approval email:", error);
+        throw new Error(`Error sending author approval email: ${error}`);
+    }
+};
+
+// gửi email thông báo từ chối yêu cầu làm tác giả
+export const sendAuthorRejectionEmail = async (email, firstName, rejectionReason) => {
+    const recipient = [{ email }];
+
+    try {
+        let htmlContent = REJECT_AUTHOR_TEMPLATE.replace("{firstName}", firstName);
+        htmlContent = htmlContent.replace("{rejectionReason}", rejectionReason);
+
+        const response = await mailtrapClient.send({
+            from: sender,
+            to: recipient,
+            subject: "Your Author Request Status",
+            html: htmlContent,
+            category: "Author Rejection",
+        });
+
+        console.log("Author rejection email sent successfully:", response);
+    } catch (error) {
+        console.error("Error sending author rejection email:", error);
+        throw new Error(`Error sending author rejection email: ${error}`);
     }
 };

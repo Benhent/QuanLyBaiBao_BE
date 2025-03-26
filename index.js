@@ -7,27 +7,21 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import { connectDB } from "./db/connectDB.js";
 import corsConfig from "./utils/cors.config.js"; // Import cấu hình CORS
-import swaggerDocs from "./utils/swagger.js"; // Import cấu hình Swagger
-import pgSession from 'connect-pg-simple';
-import pkg from 'pg';
-
-const { Pool } = pkg;
 
 // Routes
 import authRoutes from "./routes/auth.route.js";
+import postRoutes from "./routes/post.route.js";
+import commentRoutes from "./routes/comment.route.js";
+import interactionRoutes from "./routes/interaction.route.js";
+import authorRequestRoutes from "./routes/authorRequest.route.js";
+
+// Realtime
+import { setupSocketIO, socketMiddleware, setupRealtimeChannel } from "./middlewares/realtime.js";
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT;
-
-// Tạo pool kết nối đến Supabase
-const pool = new Pool({
-  connectionString: process.env.SUPABASE_DB_URL,
-  ssl: {
-    rejectUnauthorized: false
-  }
-});
 
 // Cấu hình CORS
 app.use(corsConfig);
@@ -38,8 +32,7 @@ app.use(
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        connectSrc: ["'self'", "https://quan-ly-bai-bao-be.vercel.app"],
-        // Thêm các nguồn khác nếu cần
+        connectSrc: ["'self'", process.env.CLIENT_URL],
       },
     },
   })
@@ -62,15 +55,11 @@ app.use(cookieParser());
 // Cấu hình session
 app.use(
   session({
-    store: new (pgSession(session))({
-      pool: pool, // Sử dụng pool kết nối Supabase
-      tableName: 'session' // Tên bảng lưu trữ session
-    }),
     secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: process.env.NODE_ENV === "production",
+      secure: process.env.NODE_ENV,
       httpOnly: true,
       maxAge: 24 * 60 * 60 * 1000, // 24h
     },
@@ -81,8 +70,14 @@ app.use(
 app.use(passport.initialize());
 app.use(passport.session());
 
-// Cấu hình Swagger
-swaggerDocs(app);
+// Thiết lập Socket.IO
+const server = setupSocketIO(app);
+
+// Middleware để truy cập Socket.IO từ các route
+app.use(socketMiddleware);
+
+// Middleware để thiết lập kênh realtime
+app.use(setupRealtimeChannel);
 
 // Kiểm tra trạng thái API
 app.get("/api/health", (req, res) => {
@@ -96,6 +91,10 @@ app.get("/", (req, res) => {
 
 // Routes
 app.use("/api/auth", authRoutes);
+app.use("/api/posts", postRoutes);
+app.use("/api/comments", commentRoutes);
+app.use("/api/interaction", interactionRoutes);
+app.use('/api/author-requests', authorRequestRoutes);
 
 // Middleware xử lý lỗi 404
 app.use((req, res, next) => {
@@ -123,7 +122,6 @@ connectDB()
   .then(() => {
     app.listen(PORT, () => {
       console.log(`🚀 Server is running on port: ${PORT}`);
-      console.log(`📌 Swagger docs: http://localhost:${PORT}/api-docs`);
     });
   })
   .catch((err) => {

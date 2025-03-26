@@ -1,19 +1,19 @@
 import { supabase } from '../db/connectDB.js';
 import { 
     sendVerificationEmail, 
-    sendWelcomeEmail, 
     sendPasswordResetEmail, 
-    sendResetSuccessEmail 
 } from '../mail/email.js';
 import { generateVerificationCode } from '../utils/generateVerificationCode.js';
-import crypto from 'crypto';
+import generateTokenAndCookie from '../utils/generateTokenAndCookies.js';
+import bcryptjs from 'bcryptjs';
 
-/**
- * Kiểm tra trạng thái xác thực của người dùng
- */
+// Số vòng băm cho bcryptjs
+const SALT_ROUNDS = 10;
+
+// kiểm tra xác thực
 export const checkAuth = async (req, res) => {
     try {
-        // Middleware verifyToken đã xác thực và thêm thông tin người dùng vào req.user
+        // Middleware verifyTokenForRole đã xác thực và thêm thông tin người dùng vào req.user
         res.status(200).json({
             success: true,
             message: "Authenticated",
@@ -31,9 +31,7 @@ export const checkAuth = async (req, res) => {
     }
 };
 
-/**
- * Đăng ký người dùng mới
- */
+// đăng kí
 export const signup = async (req, res) => {
     try {
         const { username, email, password, firstName, lastName } = req.body;
@@ -44,6 +42,21 @@ export const signup = async (req, res) => {
                 success: false,
                 error: 'Bad Request',
                 message: 'Username, email và password là bắt buộc'
+            });
+        }
+
+        // Kiểm tra email đã tồn tại chưa
+        const { data: existingEmail, error: emailCheckError } = await supabase
+            .from('users')
+            .select('email')
+            .eq('email', email)
+            .single();
+
+        if (existingEmail) {
+            return res.status(409).json({
+                success: false,
+                error: 'Conflict',
+                message: 'Email đã tồn tại'
             });
         }
 
@@ -62,39 +75,20 @@ export const signup = async (req, res) => {
             });
         }
 
-        // Tạo mã xác thực
+        // Tạo mã xác thực sử dụng hàm có sẵn
         const { code, expiry } = generateVerificationCode();
         
-        // Đăng ký người dùng với Supabase Auth
-        const { data: authData, error: authError } = await supabase.auth.signUp({
-            email,
-            password,
-            options: {
-                data: {
-                    username,
-                    verification_code: code,
-                    verification_expiry: expiry,
-                    is_verified: false
-                }
-            }
-        });
-
-        if (authError) {
-            return res.status(400).json({
-                success: false,
-                error: authError.message,
-                message: 'Đăng ký thất bại'
-            });
-        }
+        // Mã hóa mật khẩu trước khi lưu vào database
+        const hashedPassword = await bcryptjs.hash(password, SALT_ROUNDS);
 
         // Tạo bản ghi trong bảng users
         const { data: userData, error: userError } = await supabase
             .from('users')
             .insert([
                 {
-                    id: authData.user.id,
                     username,
                     email,
+                    password: hashedPassword, // Lưu mật khẩu đã mã hóa
                     role: 'user',
                     status: 'offline'
                 }
@@ -110,13 +104,30 @@ export const signup = async (req, res) => {
             });
         }
 
+        // Lưu mã xác thực vào bảng verification_codes
+        const { error: verificationError } = await supabase
+            .from('verification_codes')
+            .insert([
+                {
+                    user_id: userData.id,
+                    code: code,
+                    type: 'email_verification',
+                    expires_at: Math.floor(expiry / 1000), // Chuyển từ milliseconds sang seconds
+                    used: false
+                }
+            ]);
+
+        if (verificationError) {
+            console.error('Lỗi lưu mã xác thực:', verificationError);
+        }
+
         // Tạo thông tin bổ sung trong bảng user_info
         if (firstName || lastName) {
             const { error: infoError } = await supabase
                 .from('user_info')
                 .insert([
                     {
-                        user_id: authData.user.id,
+                        user_id: userData.id,
                         first_name: firstName || '',
                         last_name: lastName || ''
                     }
@@ -127,7 +138,7 @@ export const signup = async (req, res) => {
             }
         }
 
-        // Gửi email xác thực
+        // Gửi email xác thực qua Mailtrap
         try {
             await sendVerificationEmail(email, code);
         } catch (emailError) {
@@ -155,9 +166,7 @@ export const signup = async (req, res) => {
     }
 };
 
-/**
- * Xác thực email
- */
+// xác thực email
 export const verifyEmail = async (req, res) => {
     try {
         const { email, code } = req.body;
@@ -170,10 +179,14 @@ export const verifyEmail = async (req, res) => {
             });
         }
 
-        // Lấy thông tin người dùng từ Supabase Auth
-        const { data: { user }, error: getUserError } = await supabase.auth.admin.getUserByEmail(email);
+        // Lấy thông tin người dùng từ bảng users
+        const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('id, username')
+            .eq('email', email)
+            .single();
         
-        if (getUserError || !user) {
+        if (userError || !userData) {
             return res.status(404).json({
                 success: false,
                 error: 'Not Found',
@@ -181,8 +194,17 @@ export const verifyEmail = async (req, res) => {
             });
         }
 
-        // Kiểm tra mã xác thực
-        if (user.user_metadata.verification_code !== code) {
+        // Kiểm tra mã xác thực từ bảng verification_codes
+        const { data: verificationData, error: verificationError } = await supabase
+            .from('verification_codes')
+            .select('*')
+            .eq('user_id', userData.id)
+            .eq('code', code)
+            .eq('type', 'email_verification')
+            .eq('used', false)
+            .single();
+
+        if (verificationError || !verificationData) {
             return res.status(400).json({
                 success: false,
                 error: 'Bad Request',
@@ -190,9 +212,9 @@ export const verifyEmail = async (req, res) => {
             });
         }
 
-        // Kiểm tra thời gian hết hạn
-        const expiry = user.user_metadata.verification_expiry;
-        if (expiry && Date.now() > expiry) {
+        // Kiểm tra thời gian hết hạn (Unix timestamp)
+        const currentTime = Math.floor(Date.now() / 1000);
+        if (verificationData.expires_at < currentTime) {
             return res.status(400).json({
                 success: false,
                 error: 'Bad Request',
@@ -200,39 +222,19 @@ export const verifyEmail = async (req, res) => {
             });
         }
 
-        // Cập nhật trạng thái xác thực
-        const { error: updateError } = await supabase.auth.admin.updateUserById(
-            user.id,
-            { 
-                user_metadata: { 
-                    ...user.user_metadata,
-                    is_verified: true, 
-                    verification_code: null,
-                    verification_expiry: null 
-                } 
-            }
-        );
-
-        if (updateError) {
-            return res.status(400).json({
-                success: false,
-                error: updateError.message,
-                message: 'Không thể cập nhật trạng thái xác thực'
-            });
-        }
-
-        // Gửi email chào mừng
-        try {
-            const dashboardURL = process.env.CLIENT_URL || 'https://your-frontend-app.com/dashboard';
-            await sendWelcomeEmail(email, user.user_metadata.username || 'User', dashboardURL);
-        } catch (emailError) {
-            console.error('Lỗi gửi email chào mừng:', emailError);
-            // Tiếp tục xử lý ngay cả khi gửi email thất bại
-        }
+        // Đánh dấu mã xác thực đã được sử dụng
+        await supabase
+            .from('verification_codes')
+            .update({ 
+                used: true,
+                used_at: Math.floor(Date.now() / 1000) // Unix timestamp
+            })
+            .eq('id', verificationData.id);
+        
 
         res.status(200).json({
             success: true,
-            message: 'Email đã được xác thực thành công'
+            message: 'Xác thực email thành công'
         });
     } catch (error) {
         console.error('Lỗi xác thực email:', error);
@@ -244,12 +246,10 @@ export const verifyEmail = async (req, res) => {
     }
 };
 
-/**
- * Gửi lại mã xác thực
- */
-export const resendVerification = async (req, res) => {
+// Gửi lại mã xác thực
+export const resendVerificationCode = async (req, res) => {
     try {
-        const { email } = req.body;
+        const { email, type = 'email_verification' } = req.body;
 
         if (!email) {
             return res.status(400).json({
@@ -259,10 +259,23 @@ export const resendVerification = async (req, res) => {
             });
         }
 
-        // Lấy thông tin người dùng từ Supabase Auth
-        const { data: { user }, error: getUserError } = await supabase.auth.admin.getUserByEmail(email);
+        // Kiểm tra loại mã xác thực hợp lệ
+        if (!['email_verification', 'password_reset'].includes(type)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Bad Request',
+                message: 'Loại mã xác thực không hợp lệ'
+            });
+        }
+
+        // Lấy thông tin người dùng từ bảng users
+        const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('id, username')
+            .eq('email', email)
+            .single();
         
-        if (getUserError || !user) {
+        if (userError || !userData) {
             return res.status(404).json({
                 success: false,
                 error: 'Not Found',
@@ -270,53 +283,58 @@ export const resendVerification = async (req, res) => {
             });
         }
 
-        // Kiểm tra xem người dùng đã xác thực chưa
-        if (user.user_metadata.is_verified) {
-            return res.status(400).json({
-                success: false,
-                error: 'Bad Request',
-                message: 'Tài khoản đã được xác thực'
-            });
-        }
-
         // Tạo mã xác thực mới
         const { code, expiry } = generateVerificationCode();
 
-        // Cập nhật mã xác thực mới
-        const { error: updateError } = await supabase.auth.admin.updateUserById(
-            user.id,
-            { 
-                user_metadata: { 
-                    ...user.user_metadata, 
-                    verification_code: code,
-                    verification_expiry: expiry
-                } 
-            }
-        );
+        // Xóa mã xác thực cũ nếu có
+        await supabase
+            .from('verification_codes')
+            .delete()
+            .eq('user_id', userData.id)
+            .eq('type', type);
 
-        if (updateError) {
-            return res.status(400).json({
+        // Lưu mã xác thực mới vào bảng verification_codes
+        const { error: verificationError } = await supabase
+            .from('verification_codes')
+            .insert([
+                {
+                    user_id: userData.id,
+                    code: code,
+                    type: type,
+                    expires_at: Math.floor(expiry / 1000), // Chuyển từ milliseconds sang seconds
+                    used: false
+                }
+            ]);
+
+        if (verificationError) {
+            console.error('Lỗi lưu mã xác thực:', verificationError);
+            return res.status(500).json({
                 success: false,
-                error: updateError.message,
-                message: 'Không thể cập nhật mã xác thực'
+                error: 'Database Error',
+                message: 'Không thể tạo mã xác thực mới'
             });
         }
 
-        // Gửi email xác thực mới
+        // Gửi email dựa vào loại mã xác thực
         try {
-            await sendVerificationEmail(email, code);
+            if (type === 'email_verification') {
+                await sendVerificationEmail(email, code);
+            } else if (type === 'password_reset') {
+                const resetURL = `${process.env.CLIENT_URL}/reset-password/${code}`;
+                await sendPasswordResetEmail(email, resetURL);
+            }
         } catch (emailError) {
-            console.error('Lỗi gửi email xác thực:', emailError);
+            console.error('Lỗi gửi email:', emailError);
             return res.status(500).json({
                 success: false,
                 error: 'Email Error',
-                message: 'Không thể gửi email xác thực'
+                message: 'Không thể gửi email'
             });
         }
 
         res.status(200).json({
             success: true,
-            message: 'Mã xác thực mới đã được gửi đến email của bạn'
+            message: `Mã xác thực mới đã được gửi đến ${email}`
         });
     } catch (error) {
         console.error('Lỗi gửi lại mã xác thực:', error);
@@ -328,9 +346,7 @@ export const resendVerification = async (req, res) => {
     }
 };
 
-/**
- * Đăng nhập
- */
+// đăng nhập
 export const login = async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -344,22 +360,32 @@ export const login = async (req, res) => {
             });
         }
 
-        // Đăng nhập với Supabase Auth
-        const { data, error } = await supabase.auth.signInWithPassword({
-            email,
-            password,
-        });
+        // Lấy thông tin người dùng từ bảng users dựa trên email
+        const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('id, username, email, password, role, status, avatar_url')
+            .eq('email', email)
+            .single();
 
-        if (error) {
+        if (userError || !userData) {
             return res.status(401).json({
                 success: false,
-                error: error.message,
+                error: 'Invalid login credentials',
                 message: 'Đăng nhập thất bại'
             });
         }
 
-        // Kiểm tra xem tài khoản đã được xác thực chưa
-        if (data.user.user_metadata && data.user.user_metadata.is_verified === false) {
+        // Kiểm tra xem tài khoản đã được xác thực chưa bằng cách kiểm tra verification_codes
+        const { data: verificationData, error: verificationError } = await supabase
+            .from('verification_codes')
+            .select('*')
+            .eq('user_id', userData.id)
+            .eq('type', 'email_verification')
+            .eq('used', true)
+            .single();
+
+        // Nếu không tìm thấy mã xác thực đã sử dụng, tài khoản chưa được xác thực
+        if (verificationError && !verificationData) {
             return res.status(403).json({
                 success: false,
                 error: 'Forbidden',
@@ -367,34 +393,42 @@ export const login = async (req, res) => {
             });
         }
 
-        // Cập nhật trạng thái người dùng
+        // So sánh mật khẩu được nhập với mật khẩu đã được mã hóa
+        const isPasswordValid = await bcryptjs.compare(password, userData.password);
+        
+        if (!isPasswordValid) {
+            return res.status(401).json({
+                success: false,
+                error: 'Invalid login credentials',
+                message: 'Đăng nhập thất bại'
+            });
+        }
+
+        // Cập nhật trạng thái người dùng thành online
         await supabase
             .from('users')
             .update({ status: 'online' })
-            .eq('id', data.user.id);
+            .eq('id', userData.id);
 
-        // Lấy thông tin người dùng
-        const { data: userData, error: userError } = await supabase
-            .from('users')
-            .select('id, username, email, role, status, avatar_url')
-            .eq('id', data.user.id)
-            .single();
+        // Tạo JWT token và cookie
+        const { token, expiresAt } = generateTokenAndCookie(userData, res);
 
-        if (userError) {
-            console.error('Lỗi khi lấy thông tin người dùng:', userError);
-        }
-
+        // Trả về thông tin người dùng và token
         res.status(200).json({
             success: true,
             message: 'Đăng nhập thành công',
             data: {
-                user: userData || {
-                    id: data.user.id,
-                    email: data.user.email
+                user: {
+                    id: userData.id,
+                    username: userData.username,
+                    email: userData.email,
+                    role: userData.role,
+                    status: 'online',
+                    avatar_url: userData.avatar_url
                 },
                 session: {
-                    access_token: data.session.access_token,
-                    expires_at: data.session.expires_at
+                    access_token: token,
+                    expires_at: expiresAt
                 }
             }
         });
@@ -408,21 +442,9 @@ export const login = async (req, res) => {
     }
 };
 
-/**
- * Đăng xuất
- */
+// đăng xuất
 export const logout = async (req, res) => {
     try {
-        const { error } = await supabase.auth.signOut();
-
-        if (error) {
-            return res.status(400).json({
-                success: false,
-                error: error.message,
-                message: 'Đăng xuất thất bại'
-            });
-        }
-
         // Nếu có thông tin người dùng, cập nhật trạng thái
         if (req.user && req.user.id) {
             await supabase
@@ -430,6 +452,9 @@ export const logout = async (req, res) => {
                 .update({ status: 'offline' })
                 .eq('id', req.user.id);
         }
+
+        // Xóa cookie
+        res.clearCookie('auth_token');
 
         res.status(200).json({
             success: true,
@@ -445,9 +470,7 @@ export const logout = async (req, res) => {
     }
 };
 
-/**
- * Yêu cầu đặt lại mật khẩu
- */
+// yêu cầu đặt lại mật khẩu
 export const forgotPassword = async (req, res) => {
     try {
         const { email } = req.body;
@@ -475,18 +498,26 @@ export const forgotPassword = async (req, res) => {
             });
         }
 
-        // Tạo token đặt lại mật khẩu
-        const resetToken = crypto.randomBytes(32).toString('hex');
-        const resetTokenExpiry = Date.now() + 3600000; // 1 giờ
+        // Tạo mã đặt lại mật khẩu
+        const { code, expiry } = generateVerificationCode();
 
-        // Lưu token vào cơ sở dữ liệu
+        // Xóa mã đặt lại mật khẩu cũ nếu có (do ràng buộc UNIQUE)
+        await supabase
+            .from('verification_codes')
+            .delete()
+            .eq('user_id', userData.id)
+            .eq('type', 'password_reset');
+
+        // Lưu mã đặt lại mật khẩu vào bảng verification_codes
         const { error: tokenError } = await supabase
-            .from('password_resets')
+            .from('verification_codes')
             .insert([
                 {
                     user_id: userData.id,
-                    token: resetToken,
-                    expires_at: new Date(resetTokenExpiry).toISOString()
+                    code: code,
+                    type: 'password_reset',
+                    expires_at: Math.floor(expiry / 1000), // Chuyển từ milliseconds sang seconds
+                    used: false
                 }
             ]);
 
@@ -500,9 +531,9 @@ export const forgotPassword = async (req, res) => {
         }
 
         // Tạo URL đặt lại mật khẩu
-        const resetURL = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
+        const resetURL = `${process.env.CLIENT_URL}/reset-password/${code}`;
 
-        // Gửi email đặt lại mật khẩu
+        // Gửi email đặt lại mật khẩu qua Mailtrap
         try {
             await sendPasswordResetEmail(email, resetURL);
         } catch (emailError) {
@@ -510,6 +541,7 @@ export const forgotPassword = async (req, res) => {
             // Tiếp tục xử lý ngay cả khi gửi email thất bại
         }
 
+        // console.log("Reset URL:", resetURL);
         res.status(200).json({
             success: true,
             message: 'Email đặt lại mật khẩu đã được gửi'
@@ -524,9 +556,7 @@ export const forgotPassword = async (req, res) => {
     }
 };
 
-/**
- * Đặt lại mật khẩu
- */
+// đặt lại mật khẩu
 export const resetPassword = async (req, res) => {
     try {
         const { token } = req.params;
@@ -549,11 +579,13 @@ export const resetPassword = async (req, res) => {
             });
         }
 
-        // Tìm token trong cơ sở dữ liệu
+        // Tìm token trong bảng verification_codes
         const { data: resetData, error: resetError } = await supabase
-            .from('password_resets')
+            .from('verification_codes')
             .select('user_id, expires_at')
-            .eq('token', token)
+            .eq('code', token)
+            .eq('type', 'password_reset')
+            .eq('used', false)
             .single();
 
         if (resetError || !resetData) {
@@ -564,9 +596,9 @@ export const resetPassword = async (req, res) => {
             });
         }
 
-        // Kiểm tra thời gian hết hạn
-        const expiryDate = new Date(resetData.expires_at);
-        if (expiryDate < new Date()) {
+        // Kiểm tra thời gian hết hạn (Unix timestamp)
+        const currentTime = Math.floor(Date.now() / 1000);
+        if (resetData.expires_at < currentTime) {
             return res.status(400).json({
                 success: false,
                 error: 'Bad Request',
@@ -589,38 +621,34 @@ export const resetPassword = async (req, res) => {
             });
         }
 
-        // Đặt lại mật khẩu với Supabase Auth
-        const { error: updateError } = await supabase.auth.admin.updateUserById(
-            resetData.user_id,
-            { password }
-        );
+        // Mã hóa mật khẩu mới với bcryptjs
+        const hashedPassword = await bcryptjs.hash(password, SALT_ROUNDS);
 
-        if (updateError) {
-            return res.status(400).json({
+        // Cập nhật mật khẩu trong bảng users
+        const { error: updateUserError } = await supabase
+            .from('users')
+            .update({ password: hashedPassword })
+            .eq('id', resetData.user_id);
+
+        if (updateUserError) {
+            console.error('Lỗi cập nhật mật khẩu trong bảng users:', updateUserError);
+            return res.status(500).json({
                 success: false,
-                error: updateError.message,
-                message: 'Không thể đặt lại mật khẩu'
+                error: 'Database Error',
+                message: 'Không thể cập nhật mật khẩu'
             });
         }
 
-        // Xóa token đã sử dụng
+        // Đánh dấu token đã sử dụng
         await supabase
-            .from('password_resets')
-            .delete()
-            .eq('token', token);
+            .from('verification_codes')
+            .update({ 
+                used: true,
+                used_at: Math.floor(Date.now() / 1000) // Unix timestamp
+            })
+            .eq('code', token)
+            .eq('type', 'password_reset');
 
-        // Gửi email xác nhận đặt lại mật khẩu thành công
-        try {
-            await sendResetSuccessEmail(userData.email);
-        } catch (emailError) {
-            console.error('Lỗi gửi email xác nhận đặt lại mật khẩu:', emailError);
-            // Tiếp tục xử lý ngay cả khi gửi email thất bại
-        }
-
-        res.status(200).json({
-            success: true,
-            message: 'Mật khẩu đã được đặt lại thành công'
-        });
     } catch (error) {
         console.error('Lỗi đặt lại mật khẩu:', error);
         res.status(500).json({
@@ -631,9 +659,7 @@ export const resetPassword = async (req, res) => {
     }
 };
 
-/**
- * Lấy thông tin người dùng hiện tại
- */
+// lấy thông tin người dùng hiện tại
 export const getCurrentUser = async (req, res) => {
     try {
         if (!req.user) {

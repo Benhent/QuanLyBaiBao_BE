@@ -28,70 +28,6 @@ export const VERIFICATION_EMAIL_TEMPLATE = `
 </html>
 `;
 
-export const WELCOME_EMAIL_TEMPLATE = `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Welcome to Our Platform</title>
-</head>
-<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-  <div style="background: linear-gradient(to right, #4CAF50, #45a049); padding: 20px; text-align: center;">
-    <h1 style="color: white; margin: 0;">Welcome to Our Platform!</h1>
-  </div>
-  <div style="background-color: #f9f9f9; padding: 20px; border-radius: 0 0 5px 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
-    <p>Hello {username},</p>
-    <p>We're excited to have you join us! You can now explore and enjoy our platform.</p>
-    <p>Here are some things you can do:</p>
-    <ul>
-      <li>Browse and read interesting articles</li>
-      <li>Engage in discussions with other members</li>
-      <li>Submit your own articles for review</li>
-    </ul>
-    <p>Get started by visiting your dashboard:</p>
-    <div style="text-align: center; margin: 30px 0;">
-      <a href="{dashboardURL}" style="background-color: #4CAF50; color: white; padding: 12px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">Go to Dashboard</a>
-    </div>
-    <p>If you have any questions, feel free to reach out to our support team.</p>
-    <p>Best regards,<br>Your App Team</p>
-  </div>
-  <div style="text-align: center; margin-top: 20px; color: #888; font-size: 0.8em;">
-    <p>This is an automated message, please do not reply to this email.</p>
-  </div>
-</body>
-</html>
-`;
-
-export const REJECT_AUTHOR_TEMPLATE = `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Author Application Rejected</title>
-</head>
-<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-  <div style="background: linear-gradient(to right, #FF5733, #E84118); padding: 20px; text-align: center;">
-    <h1 style="color: white; margin: 0;">Application Rejected</h1>
-  </div>
-  <div style="background-color: #f9f9f9; padding: 20px; border-radius: 0 0 5px 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
-    <p>Hello {username},</p>
-    <p>Thank you for your interest in becoming an author on our platform.</p>
-    <p>Unfortunately, after reviewing your application, we are unable to approve your request at this time due to the following reason:</p>
-    <blockquote style="background-color: #ffeeee; padding: 10px; border-left: 5px solid #FF5733;">
-      {rejectionReason}
-    </blockquote>
-    <p>If you believe this was a mistake or if you would like to reapply, please review our guidelines and submit another request.</p>
-    <p>Best regards,<br>Your App Team</p>
-  </div>
-  <div style="text-align: center; margin-top: 20px; color: #888; font-size: 0.8em;">
-    <p>This is an automated message, please do not reply to this email.</p>
-  </div>
-</body>
-</html>
-`;
-
 export const PASSWORD_RESET_REQUEST_TEMPLATE = `
 <!DOCTYPE html>
 <html lang="en">
@@ -121,35 +57,65 @@ export const PASSWORD_RESET_REQUEST_TEMPLATE = `
 </html>
 `;
 
-export const PASSWORD_RESET_SUCCESS_TEMPLATE = `
+export const APPROVE_AUTHOR_TEMPLATE = `
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Password Reset Successful</title>
+  <title>Author Request Approved</title>
 </head>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
   <div style="background: linear-gradient(to right, #4CAF50, #45a049); padding: 20px; text-align: center;">
-    <h1 style="color: white; margin: 0;">Password Reset Successful</h1>
+    <h1 style="color: white; margin: 0;">Author Request Approved</h1>
   </div>
   <div style="background-color: #f9f9f9; padding: 20px; border-radius: 0 0 5px 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
-    <p>Hello,</p>
-    <p>We're writing to confirm that your password has been successfully reset.</p>
-    <div style="text-align: center; margin: 30px 0;">
-      <div style="background-color: #4CAF50; color: white; width: 50px; height: 50px; line-height: 50px; border-radius: 50%; display: inline-block; font-size: 30px;">
-        ✓
-      </div>
-    </div>
-    <p>If you did not initiate this password reset, please contact our support team immediately.</p>
-    <p>For security reasons, we recommend that you:</p>
-    <ul>
-      <li>Use a strong, unique password</li>
-      <li>Enable two-factor authentication if available</li>
-      <li>Avoid using the same password across multiple sites</li>
+    <p>Hello {firstName},</p>
+    <p>We are pleased to inform you that your request to become an author has been <strong>approved</strong>!</p>
+    <p>You now have access to all author features on our platform, including:</p>
+    <ul style="margin-bottom: 20px;">
+      <li>Publishing articles and books</li>
+      <li>Managing your publications</li>
+      <li>Accessing author analytics</li>
+      <li>Collaborating with other authors</li>
     </ul>
-    <p>Thank you for helping us keep your account secure.</p>
-    <p>Best regards,<br>Your App Team</p>
+    <p>You can access your author dashboard by logging into your account and navigating to the "Author" section.</p>
+    <div style="text-align: center; margin: 30px 0;">
+      <a href="{loginURL}" style="background-color: #4CAF50; color: white; padding: 12px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">Go to Dashboard</a>
+    </div>
+    <p>If you have any questions about your author privileges or need assistance, please don't hesitate to contact our support team.</p>
+    <p>Best regards,<br>The Editorial Team</p>
+  </div>
+  <div style="text-align: center; margin-top: 20px; color: #888; font-size: 0.8em;">
+    <p>This is an automated message, please do not reply to this email.</p>
+  </div>
+</body>
+</html>
+`;
+
+export const REJECT_AUTHOR_TEMPLATE = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Author Request Status</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="background: linear-gradient(to right, #e74c3c, #c0392b); padding: 20px; text-align: center;">
+    <h1 style="color: white; margin: 0;">Author Request Status</h1>
+  </div>
+  <div style="background-color: #f9f9f9; padding: 20px; border-radius: 0 0 5px 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+    <p>Hello {firstName},</p>
+    <p>Thank you for your interest in becoming an author on our platform.</p>
+    <p>After careful review of your application, we regret to inform you that we are unable to approve your author request at this time.</p>
+    <div style="background-color: #f8f8f8; border-left: 4px solid #e74c3c; padding: 15px; margin: 20px 0;">
+      <p style="margin: 0;"><strong>Reason:</strong></p>
+      <p style="margin: 10px 0 0 0;">{rejectionReason}</p>
+    </div>
+    <p>You are welcome to submit a new request in the future with additional information that addresses the concerns mentioned above.</p>
+    <p>If you have any questions or would like further clarification, please contact our support team.</p>
+    <p>Best regards,<br>The Editorial Team</p>
   </div>
   <div style="text-align: center; margin-top: 20px; color: #888; font-size: 0.8em;">
     <p>This is an automated message, please do not reply to this email.</p>
