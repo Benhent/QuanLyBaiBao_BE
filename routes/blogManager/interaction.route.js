@@ -4,8 +4,8 @@ import {
   toggleBookmark,
   getBookmarkedPosts,
   getFavoritePosts,
-} from "../controllers/interaction.controller.js";
-import { verifyToken } from "../middlewares/verifyToken.js";
+} from "../../controllers/blog/interaction.controller.js";
+import { verifyToken } from "../../middlewares/verifyToken.js";
 
 const router = express.Router();
 

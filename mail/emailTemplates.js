@@ -57,6 +57,56 @@ export const PASSWORD_RESET_REQUEST_TEMPLATE = `
 </html>
 `;
 
+export const ADMIN_AUTHOR_REQUEST_NOTIFICATION_TEMPLATE = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>New Author Request</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="background: linear-gradient(to right, #3498db, #2980b9); padding: 20px; text-align: center;">
+    <h1 style="color: white; margin: 0;">New Author Request</h1>
+  </div>
+  <div style="background-color: #f9f9f9; padding: 20px; border-radius: 0 0 5px 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+    <p>Hello Admin,</p>
+    <p>A new author request has been submitted and requires your review.</p>
+    
+    <div style="background-color: #f0f0f0; padding: 15px; border-radius: 5px; margin: 20px 0;">
+      <h3 style="margin-top: 0; color: #2980b9;">Request Details:</h3>
+      <table style="width: 100%; border-collapse: collapse;">
+        <tr>
+          <td style="padding: 8px 0; font-weight: bold; width: 40%;">Name:</td>
+          <td style="padding: 8px 0;">{firstName} {lastName}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; font-weight: bold;">Academic Title:</td>
+          <td style="padding: 8px 0;">{academicTitle}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; font-weight: bold;">Reason for Request:</td>
+          <td style="padding: 8px 0;">{reason}</td>
+        </tr>
+      </table>
+    </div>
+    
+    <p>Please review this request at your earliest convenience.</p>
+    
+    <div style="text-align: center; margin: 30px 0;">
+      <a href="{requestURL}" style="background-color: #3498db; color: white; padding: 12px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;">Review Request</a>
+    </div>
+    
+    <p>Thank you for your attention to this matter.</p>
+    <p>Best regards,<br>System Notification</p>
+  </div>
+  <div style="text-align: center; margin-top: 20px; color: #888; font-size: 0.8em;">
+    <p>This is an automated message, please do not reply to this email.</p>
+  </div>
+</body>
+</html>
+`;
+
 export const APPROVE_AUTHOR_TEMPLATE = `
 <!DOCTYPE html>
 <html lang="en">

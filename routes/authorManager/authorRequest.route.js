@@ -1,14 +1,13 @@
 import express from 'express';
-import { verifyToken } from '../middlewares/verifyToken.js';
-import { isAdmin } from '../middlewares/isAdmin.js';
+import { verifyToken } from '../../middlewares/verifyToken.js';
+import { isAdmin } from '../../middlewares/isAdmin.js';
 import {
     submitAuthorRequest,
     getAuthorRequests,
     getAuthorRequestById,
-    getMyAuthorRequests,
     approveAuthorRequest,
     rejectAuthorRequest
-} from '../controllers/authorRequest.controller.js';
+} from '../../controllers/author/authorRequest.controller.js';
 
 const router = express.Router();
 

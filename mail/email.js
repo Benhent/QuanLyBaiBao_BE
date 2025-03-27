@@ -50,6 +50,38 @@ export const sendPasswordResetEmail = async (email, resetURL) => {
     }
 };
 
+// gửi email thông báo cho admin khi có yêu cầu tác giả mới
+export const sendAdminAuthorRequestNotification = async (adminEmails, authorRequest, requestURL) => {
+    try {
+        if (!adminEmails || adminEmails.length === 0) {
+            console.warn("No admin emails provided for notification");
+            return;
+        }
+
+        const recipients = adminEmails.map(email => ({ email }));
+        
+        let htmlContent = ADMIN_AUTHOR_REQUEST_NOTIFICATION_TEMPLATE
+            .replace("{firstName}", authorRequest.first_name)
+            .replace("{lastName}", authorRequest.last_name)
+            .replace("{academicTitle}", authorRequest.academic_title || 'Không có')
+            .replace("{reason}", authorRequest.reason_for_request || 'Không có')
+            .replace("{requestURL}", requestURL);
+
+        const response = await mailtrapClient.send({
+            from: sender,
+            to: recipients,
+            subject: "Yêu cầu trở thành tác giả mới",
+            html: htmlContent,
+            category: "Author Request Notification",
+        });
+
+        console.log("Admin notification email sent successfully:", response);
+    } catch (error) {
+        console.error("Error sending admin notification email:", error);
+        // Không throw error ở đây để không ảnh hưởng đến việc tạo yêu cầu
+    }
+};
+
 // gửi email thông báo chấp nhận yêu cầu làm tác giả
 export const sendAuthorApprovalEmail = async (email, firstName, loginURL) => {
     const recipient = [{ email }];
