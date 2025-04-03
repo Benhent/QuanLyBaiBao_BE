@@ -1,17 +1,10 @@
-import { v2 as cloudinary } from 'cloudinary';
 import fs from 'fs';
 import multer from 'multer';
 import path from 'path';
 import { supabase } from '../db/connectDB.js';
+import { uploadToCloudinary, deleteFromCloudinary, extractPublicIdFromUrl } from '../middlewares/cloudinary.config.js';
 
-// Cấu hình Cloudinary
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
-
-// Cấu hình multer để lưu file tạm thời
+// Configure multer for temporary file storage
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     const uploadDir = './uploads';
@@ -26,7 +19,7 @@ const storage = multer.diskStorage({
   },
 });
 
-// Giới hạn loại file được upload
+// Limit file types for upload
 const fileFilter = (req, file, cb) => {
   const allowedTypes = [
     'application/pdf',
@@ -44,81 +37,74 @@ const fileFilter = (req, file, cb) => {
   if (allowedTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error('Loại file không được hỗ trợ'), false);
+    cb(new Error('Unsupported file type'), false);
   }
 };
 
-// Cấu hình upload
+// Configure upload
 export const upload = multer({
   storage: storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // Giới hạn 10MB
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
   fileFilter: fileFilter,
 });
 
-// Hàm upload file lên Cloudinary
-const uploadToCloudinary = async (filePath, folder = 'uploads') => {
-  try {
-    const result = await cloudinary.uploader.upload(filePath, {
-      folder: folder,
-      resource_type: 'auto',
-    });
-    
-    // Xóa file tạm sau khi upload
-    fs.unlinkSync(filePath);
-    
-    return {
-      url: result.secure_url,
-      public_id: result.public_id,
-      resource_type: result.resource_type,
-      format: result.format,
-    };
-  } catch (error) {
-    // Xóa file tạm nếu upload thất bại
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-    }
-    throw new Error(`Lỗi khi upload file lên Cloudinary: ${error.message}`);
-  }
+// Determine file type based on mimetype
+const determineFileType = (mimetype) => {
+  let file_type = 'other';
+  if (mimetype === 'application/pdf') file_type = 'pdf';
+  else if (mimetype === 'application/msword' || mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') file_type = 'docx';
+  else if (mimetype === 'application/vnd.ms-excel' || mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') file_type = 'excel';
+  else if (mimetype === 'application/vnd.ms-powerpoint' || mimetype === 'application/vnd.openxmlformats-officedocument.presentationml.presentation') file_type = 'powerpoint';
+  else if (mimetype.startsWith('image/')) file_type = 'image';
+  
+  return file_type;
 };
 
-// Controller để upload file
+// Determine folder based on content type
+const determineFolderByContentType = (content_type) => {
+  let folder = 'uploads';
+  if (content_type === 'article') folder = 'articles';
+  else if (content_type === 'book') folder = 'books';
+  else if (content_type === 'journal') folder = 'journals';
+  else if (content_type === 'author_request') folder = 'author_requests';
+  
+  return folder;
+};
+
+// Controller to upload file
 export const uploadFile = async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({
         success: false,
         error: 'Bad Request',
-        message: 'Không có file nào được upload'
+        message: 'No file uploaded'
       });
     }
 
-    // Lấy thông tin từ request
+    // Get information from request
     const { content_type, content_id } = req.body;
     const { originalname, mimetype, path: filePath, size } = req.file;
     
-    // Xác định folder dựa trên content_type
-    let folder = 'uploads';
-    if (content_type === 'article') folder = 'articles';
-    else if (content_type === 'book') folder = 'books';
-    else if (content_type === 'journal') folder = 'journals';
-    else if (content_type === 'author_request') folder = 'author_requests';
+    // Determine folder based on content_type
+    const folder = determineFolderByContentType(content_type);
     
-    // Upload file lên Cloudinary
+    // Upload file to Cloudinary
     const cloudinaryResult = await uploadToCloudinary(filePath, folder);
     
-    // Xác định file_type dựa trên mimetype
-    let file_type = 'other';
-    if (mimetype === 'application/pdf') file_type = 'pdf';
-    else if (mimetype === 'application/msword' || mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') file_type = 'docx';
-    else if (mimetype === 'application/vnd.ms-excel' || mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') file_type = 'other';
-    else if (mimetype === 'application/vnd.ms-powerpoint' || mimetype === 'application/vnd.openxmlformats-officedocument.presentationml.presentation') file_type = 'other';
-    else if (mimetype.startsWith('image/')) file_type = 'other';
+    // Delete temporary file after upload
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
     
-    // Lưu thông tin file vào database
+    // Determine file_type based on mimetype
+    const file_type = determineFileType(mimetype);
+    
+    // Save file information to database
     const { data: fileData, error: fileError } = await supabase
       .from('files')
       .insert({
-        file_name: path.basename(filePath),
+        file_name: originalname,
         file_path: cloudinaryResult.url,
         file_type,
         file_size: size,
@@ -133,7 +119,7 @@ export const uploadFile = async (req, res) => {
       .single();
     
     if (fileError) {
-      throw new Error(`Lỗi khi lưu thông tin file: ${fileError.message}`);
+      throw new Error(`Error saving file information: ${fileError.message}`);
     }
     
     res.status(201).json({
@@ -143,6 +129,12 @@ export const uploadFile = async (req, res) => {
     });
   } catch (error) {
     console.error('Upload file error:', error);
+    
+    // Clean up temporary file if it exists
+    if (req.file && req.file.path && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+    
     res.status(500).json({
       success: false,
       error: 'Internal Server Error',
@@ -151,7 +143,7 @@ export const uploadFile = async (req, res) => {
   }
 };
 
-// Controller để lấy danh sách file theo content_type và content_id
+// Controller to get files by content type and ID
 export const getFilesByContent = async (req, res) => {
   try {
     const { content_type, content_id } = req.params;
@@ -164,7 +156,7 @@ export const getFilesByContent = async (req, res) => {
       .order('created_at', { ascending: false });
     
     if (error) {
-      throw new Error(`Lỗi khi lấy danh sách file: ${error.message}`);
+      throw new Error(`Error fetching files: ${error.message}`);
     }
     
     res.status(200).json({
@@ -181,12 +173,12 @@ export const getFilesByContent = async (req, res) => {
   }
 };
 
-// Controller để xóa file
+// Controller to delete file
 export const deleteFile = async (req, res) => {
   try {
     const { id } = req.params;
     
-    // Lấy thông tin file từ database
+    // Get file information from database
     const { data: file, error: fileError } = await supabase
       .from('files')
       .select('*')
@@ -197,43 +189,39 @@ export const deleteFile = async (req, res) => {
       return res.status(404).json({
         success: false,
         error: 'Not Found',
-        message: 'File không tồn tại'
+        message: 'File not found'
       });
     }
     
-    // Kiểm tra quyền: người dùng phải là người upload hoặc admin
+    // Check permissions: user must be uploader or admin
     if (file.uploaded_by !== req.user.id && req.user.role !== 'admin') {
       return res.status(403).json({
         success: false,
         error: 'Forbidden',
-        message: 'Bạn không có quyền xóa file này'
+        message: 'You do not have permission to delete this file'
       });
     }
     
-    // Xóa file từ Cloudinary nếu có public_id
+    // Delete file from Cloudinary if it has a URL
     if (file.file_path && file.file_path.includes('cloudinary')) {
       try {
-        // Trích xuất public_id từ URL Cloudinary
-        const urlParts = file.file_path.split('/');
-        const filenameWithExtension = urlParts[urlParts.length - 1];
-        const filename = filenameWithExtension.split('.')[0];
-        const folderPath = urlParts[urlParts.length - 2];
-        const publicId = `${folderPath}/${filename}`;
-        
-        await cloudinary.uploader.destroy(publicId);
+        const publicId = extractPublicIdFromUrl(file.file_path);
+        if (publicId) {
+          await deleteFromCloudinary(publicId);
+        }
       } catch (cloudinaryError) {
-        console.error('Lỗi khi xóa file từ Cloudinary:', cloudinaryError);
+        console.error('Error deleting file from Cloudinary:', cloudinaryError);
       }
     }
     
-    // Xóa thông tin file từ database
+    // Delete file record from database
     const { error: deleteError } = await supabase
       .from('files')
       .delete()
       .eq('id', id);
     
     if (deleteError) {
-      throw new Error(`Lỗi khi xóa file: ${deleteError.message}`);
+      throw new Error(`Error deleting file: ${deleteError.message}`);
     }
     
     res.status(200).json({
@@ -256,13 +244,13 @@ export const deleteFile = async (req, res) => {
   }
 };
 
-// Controller để cập nhật thông tin file
+// Controller to update file information
 export const updateFile = async (req, res) => {
   try {
     const { id } = req.params;
     const { is_public, version } = req.body;
     
-    // Lấy thông tin file từ database
+    // Get file information from database
     const { data: file, error: fileError } = await supabase
       .from('files')
       .select('*')
@@ -273,23 +261,24 @@ export const updateFile = async (req, res) => {
       return res.status(404).json({
         success: false,
         error: 'Not Found',
-        message: 'File không tồn tại'
+        message: 'File not found'
       });
     }
     
-    // Kiểm tra quyền: người dùng phải là người upload hoặc admin
+    // Check permissions: user must be uploader or admin
     if (file.uploaded_by !== req.user.id && req.user.role !== 'admin') {
       return res.status(403).json({
         success: false,
         error: 'Forbidden',
-        message: 'Bạn không có quyền cập nhật file này'
+        message: 'You do not have permission to update this file'
       });
     }
     
-    // Cập nhật thông tin file
+    // Update file information
     const updateData = {};
     if (is_public !== undefined) updateData.is_public = is_public;
     if (version) updateData.version = version;
+    updateData.updated_at = new Date();
     
     const { data: updatedFile, error: updateError } = await supabase
       .from('files')
@@ -299,7 +288,7 @@ export const updateFile = async (req, res) => {
       .single();
     
     if (updateError) {
-      throw new Error(`Lỗi khi cập nhật file: ${updateError.message}`);
+      throw new Error(`Error updating file: ${updateError.message}`);
     }
     
     res.status(200).json({
@@ -317,7 +306,7 @@ export const updateFile = async (req, res) => {
   }
 };
 
-// Controller để cập nhật nội dung file
+// Controller to update file content
 export const updateFileContent = async (req, res) => {
   try {
     const { id } = req.params;
@@ -326,11 +315,11 @@ export const updateFileContent = async (req, res) => {
       return res.status(400).json({
         success: false,
         error: 'Bad Request',
-        message: 'Không có file mới được upload'
+        message: 'No new file uploaded'
       });
     }
     
-    // Lấy thông tin file hiện tại từ database
+    // Get current file information from database
     const { data: existingFile, error: fileError } = await supabase
       .from('files')
       .select('*')
@@ -341,57 +330,54 @@ export const updateFileContent = async (req, res) => {
       return res.status(404).json({
         success: false,
         error: 'Not Found',
-        message: 'File không tồn tại'
+        message: 'File not found'
       });
     }
     
-    // Kiểm tra quyền: người dùng phải là người upload hoặc admin
+    // Check permissions: user must be uploader or admin
     if (existingFile.uploaded_by !== req.user.id && req.user.role !== 'admin') {
       return res.status(403).json({
         success: false,
         error: 'Forbidden',
-        message: 'Bạn không có quyền cập nhật file này'
+        message: 'You do not have permission to update this file'
       });
     }
     
-    // Xóa file cũ từ Cloudinary nếu có public_id
+    // Delete old file from Cloudinary if it has a URL
     if (existingFile.file_path && existingFile.file_path.includes('cloudinary')) {
       try {
-        // Trích xuất public_id từ URL Cloudinary
-        const urlParts = existingFile.file_path.split('/');
-        const filenameWithExtension = urlParts[urlParts.length - 1];
-        const filename = filenameWithExtension.split('.')[0];
-        const folderPath = urlParts[urlParts.length - 2];
-        const publicId = `${folderPath}/${filename}`;
-        
-        await cloudinary.uploader.destroy(publicId);
+        const publicId = extractPublicIdFromUrl(existingFile.file_path);
+        if (publicId) {
+          await deleteFromCloudinary(publicId);
+        }
       } catch (cloudinaryError) {
-        console.error('Lỗi khi xóa file cũ từ Cloudinary:', cloudinaryError);
+        console.error('Error deleting old file from Cloudinary:', cloudinaryError);
       }
     }
     
-    // Upload file mới lên Cloudinary
+    // Get information about the new file
     const { originalname, mimetype, path: filePath, size } = req.file;
     
-    // Xác định folder dựa trên content_type
-    let folder = 'uploads';
-    if (existingFile.content_type === 'article') folder = 'articles';
-    else if (existingFile.content_type === 'book') folder = 'books';
-    else if (existingFile.content_type === 'journal') folder = 'journals';
-    else if (existingFile.content_type === 'author_request') folder = 'author_requests';
+    // Determine folder based on content_type
+    const folder = determineFolderByContentType(existingFile.content_type);
     
-    // Upload file mới lên Cloudinary
+    // Upload new file to Cloudinary
     const cloudinaryResult = await uploadToCloudinary(filePath, folder);
     
-    // Cập nhật thông tin file trong database
+    // Delete temporary file after upload
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+    
+    // Update file information in database
     const { data: updatedFile, error: updateError } = await supabase
       .from('files')
       .update({
-        file_name: path.basename(filePath),
+        file_name: originalname,
         file_path: cloudinaryResult.url,
         file_size: size,
         mime_type: mimetype,
-        version: (parseFloat(existingFile.version) + 0.1).toFixed(1), // Tăng version lên 0.1
+        version: (parseFloat(existingFile.version) + 0.1).toFixed(1), // Increment version by 0.1
         updated_at: new Date()
       })
       .eq('id', id)
@@ -399,16 +385,22 @@ export const updateFileContent = async (req, res) => {
       .single();
     
     if (updateError) {
-      throw new Error(`Lỗi khi cập nhật thông tin file: ${updateError.message}`);
+      throw new Error(`Error updating file information: ${updateError.message}`);
     }
     
     res.status(200).json({
       success: true,
-      message: 'Nội dung file đã được cập nhật thành công',
+      message: 'File content updated successfully',
       data: updatedFile
     });
   } catch (error) {
     console.error('Update file content error:', error);
+    
+    // Clean up temporary file if it exists
+    if (req.file && req.file.path && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+    
     res.status(500).json({
       success: false,
       error: 'Internal Server Error',
