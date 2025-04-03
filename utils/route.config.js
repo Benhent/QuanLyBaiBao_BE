@@ -1,4 +1,3 @@
-import express from 'express';
 import rateLimit from 'express-rate-limit';
 
 // auth route
@@ -8,7 +7,7 @@ import postRoutes from '../routes/blogManager/post.route.js';
 import commentRoutes from '../routes/blogManager/comment.route.js';
 import interactionRoutes from '../routes/blogManager/interaction.route.js';
 // author route
-import authorRequestRoutes from '../routes/authorManager/authorRequest.route.js';
+import authorRoutes from '../routes/authorManager/author.route.js'
 import articleRoutes from '../routes/authorManager/article.route.js';
 import journalRoutes from '../routes/authorManager/journal.route.js';
 import bookRoutes from '../routes/authorManager/book.route.js';
@@ -45,7 +44,7 @@ export const setupRoutes = (app) => {
   app.use('/api/interaction', interactionRoutes);
 
   // Route cho author manager
-  app.use('/api/author-requests', authorRequestRoutes);
+  app.use('/api/authors', authorRoutes)
   app.use('/api/articles', articleRoutes);
   app.use('/api/journals', journalRoutes);
   app.use('/api/books', bookRoutes);

@@ -1,43 +1,49 @@
 import express from 'express';
-import { verifyToken } from '../../middlewares/verifyToken.js';
-import { hasRole, isOwner } from '../../middlewares/isAdmin.js';
-import {
-    getArticles,
-    getArticleById,
-    createArticle,
-    updateArticle,
-    deleteArticle
+import { 
+  getArticles,
+  getArticleById,
+  createArticle,
+  updateArticle,
+  deleteArticle,
+  uploadArticleDocument,
+  createArticleWithDocument,
+  getArticleDocuments,
+  updateDocumentMetadata,
+  deleteDocument,
+  downloadDocument,
+  getArticleStats,
+  searchArticlesByKeywords,
+  getArticlesByAuthor,
+  upload
 } from '../../controllers/author/article.controller.js';
+import { verifyToken } from '../../middlewares/verifyToken.js';
+import { checkRole } from '../../middlewares/isAdmin.js';
 
 const router = express.Router();
 
-// Lấy danh sách bài báo
+// ===== Article CRUD Routes =====
 router.get('/', getArticles);
-
-// Lấy chi tiết bài báo
 router.get('/:id', getArticleById);
+router.post('/', verifyToken, createArticle);
+router.put('/:id', verifyToken, updateArticle);
+router.delete('/:id', verifyToken, deleteArticle);
 
-// Tạo bài báo mới (yêu cầu xác thực và quyền tác giả hoặc admin)
-router.post('/', verifyToken, hasRole(['author', 'admin']), createArticle);
+// ===== Article Document Routes =====
+router.post('/document', verifyToken, upload.single('document'), uploadArticleDocument);
+router.post('/with-document', verifyToken, upload.single('document'), createArticleWithDocument);
+router.get('/:articleId/documents', getArticleDocuments);
+router.patch('/document/:fileId', verifyToken, updateDocumentMetadata);
+router.delete('/document/:fileId', verifyToken, deleteDocument);
+router.get('/document/:fileId/download', verifyToken, downloadDocument);
 
-// Cập nhật bài báo (yêu cầu xác thực và quyền sở hữu hoặc admin)
-router.put('/:id', verifyToken, isOwner(async (req) => {
-    const { data } = await supabase
-        .from('articles')
-        .select('author_id, authors:author_id (user_id)')
-        .eq('id', req.params.id)
-        .single();
-    return data?.authors?.user_id;
-}), updateArticle);
+// ===== Article Search and Filtering Routes =====
+router.get('/search/keywords', searchArticlesByKeywords);
+router.get('/author/:authorId', getArticlesByAuthor);
 
-// Xóa bài báo (yêu cầu xác thực và quyền sở hữu hoặc admin)
-router.delete('/:id', verifyToken, isOwner(async (req) => {
-    const { data } = await supabase
-        .from('articles')
-        .select('author_id, authors:author_id (user_id)')
-        .eq('id', req.params.id)
-        .single();
-    return data?.authors?.user_id;
-}), deleteArticle);
+// ===== Article Statistics =====
+router.get('/stats/overview', verifyToken, getArticleStats);
+
+// ===== Admin Routes =====
+router.get('/admin/all', verifyToken, checkRole('admin'), getArticles);
 
 export default router;

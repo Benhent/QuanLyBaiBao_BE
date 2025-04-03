@@ -1,43 +1,34 @@
 import express from 'express';
-import { verifyToken } from '../../middlewares/verifyToken.js';
-import { hasRole, isOwner } from '../../middlewares/isAdmin.js';
-import {
-    getInstitutions,
-    getInstitutionById,
-    createInstitution,
-    updateInstitution,
-    deleteInstitution
+import { 
+  getInstitutions,
+  getInstitutionById,
+  createInstitution,
+  updateInstitution,
+  deleteInstitution,
+  getInstitutionStats,
+  getInstitutionsByCountry,
+  getUniqueCountries,
+  getUniqueTypes
 } from '../../controllers/author/institution.controller.js';
+import { verifyToken } from '../../middlewares/verifyToken.js';
+import { checkRole } from '../../middlewares/isAdmin.js';
 
 const router = express.Router();
 
-// Lấy danh sách tổ chức
+// ===== Institution CRUD Routes =====
 router.get('/', getInstitutions);
-
-// Lấy chi tiết tổ chức
 router.get('/:id', getInstitutionById);
+router.post('/', verifyToken, createInstitution);
+router.put('/:id', verifyToken, updateInstitution);
+router.delete('/:id', verifyToken, deleteInstitution);
 
-// Tạo tổ chức mới (yêu cầu xác thực và quyền tác giả hoặc admin)
-router.post('/', verifyToken, hasRole(['author', 'admin']), createInstitution);
+// ===== Additional Institution Routes =====
+router.get('/stats/overview', verifyToken, getInstitutionStats);
+router.get('/country/:country', getInstitutionsByCountry);
+router.get('/unique/countries', getUniqueCountries);
+router.get('/unique/types', getUniqueTypes);
 
-// Cập nhật tổ chức (yêu cầu xác thực và quyền sở hữu hoặc admin)
-router.put('/:id', verifyToken, isOwner(async (req) => {
-    const { data } = await supabase
-        .from('institutions')
-        .select('created_by')
-        .eq('id', req.params.id)
-        .single();
-    return data?.created_by;
-}), updateInstitution);
-
-// Xóa tổ chức (yêu cầu xác thực và quyền sở hữu hoặc admin)
-router.delete('/:id', verifyToken, isOwner(async (req) => {
-    const { data } = await supabase
-        .from('institutions')
-        .select('created_by')
-        .eq('id', req.params.id)
-        .single();
-    return data?.created_by;
-}), deleteInstitution);
+// ===== Admin Routes =====
+router.get('/admin/all', verifyToken, checkRole('admin'), getInstitutions);
 
 export default router;

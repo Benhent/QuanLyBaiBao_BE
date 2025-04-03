@@ -1,43 +1,50 @@
 import express from 'express';
-import { verifyToken } from '../../middlewares/verifyToken.js';
-import { hasRole, isOwner } from '../../middlewares/isAdmin.js';
-import {
-    getJournals,
-    getJournalById,
-    createJournal,
-    updateJournal,
-    deleteJournal
+import { 
+  getJournals,
+  getJournalById,
+  createJournal,
+  updateJournal,
+  deleteJournal,
+  uploadJournalDocument,
+  createJournalWithDocument,
+  getJournalDocuments,
+  updateDocumentMetadata,
+  deleteDocument,
+  downloadDocument,
+  getJournalStats,
+  associateArticle,
+  disassociateArticle,
+  upload
 } from '../../controllers/author/journal.controller.js';
+import { verifyToken } from '../../middlewares/verifyToken.js';
+import { checkRole } from '../../middlewares/isAdmin.js';
 
 const router = express.Router();
 
-// Lấy danh sách tạp chí
+// ===== Journal CRUD Routes =====
+
 router.get('/', getJournals);
-
-// Lấy chi tiết tạp chí
 router.get('/:id', getJournalById);
+router.post('/', verifyToken, createJournal);
+router.put('/:id', verifyToken, updateJournal);
+router.delete('/:id', verifyToken, deleteJournal);
 
-// Tạo tạp chí mới (yêu cầu xác thực và quyền tác giả hoặc admin)
-router.post('/', verifyToken, hasRole(['author', 'admin']), createJournal);
+// ===== Journal Document Routes =====
+router.post('/document', verifyToken, upload.single('document'), uploadJournalDocument);
+router.post('/with-document', verifyToken, upload.single('document'), createJournalWithDocument);
+router.get('/:journalId/documents', getJournalDocuments);
+router.patch('/document/:fileId', verifyToken, updateDocumentMetadata);
+router.delete('/document/:fileId', verifyToken, deleteDocument);
+router.get('/document/:fileId/download', verifyToken, downloadDocument);
 
-// Cập nhật tạp chí (yêu cầu xác thực và quyền sở hữu hoặc admin)
-router.put('/:id', verifyToken, isOwner(async (req) => {
-    const { data } = await supabase
-        .from('journals')
-        .select('created_by')
-        .eq('id', req.params.id)
-        .single();
-    return data?.created_by;
-}), updateJournal);
+// ===== Journal Statistics =====
+router.get('/stats/overview', verifyToken, getJournalStats);
 
-// Xóa tạp chí (yêu cầu xác thực và quyền sở hữu hoặc admin)
-router.delete('/:id', verifyToken, isOwner(async (req) => {
-    const { data } = await supabase
-        .from('journals')
-        .select('created_by')
-        .eq('id', req.params.id)
-        .single();
-    return data?.created_by;
-}), deleteJournal);
+// ===== Journal-Article Association Routes =====
+router.post('/associate-article', verifyToken, associateArticle);
+router.delete('/:journalId/article/:articleId', verifyToken, disassociateArticle);
+
+// ===== Admin Routes =====
+router.get('/admin/all', verifyToken, checkRole('admin'), getJournals);
 
 export default router;

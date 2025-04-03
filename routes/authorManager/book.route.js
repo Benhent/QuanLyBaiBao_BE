@@ -1,43 +1,39 @@
 import express from 'express';
-import { verifyToken } from '../../middlewares/verifyToken.js';
-import { hasRole, isOwner } from '../../middlewares/isAdmin.js';
-import {
-    getBooks,
-    getBookById,
-    createBook,
-    updateBook,
-    deleteBook
+import { 
+  getBooks,
+  getBookById,
+  createBook,
+  updateBook,
+  deleteBook,
+  uploadBookDocument,
+  createBookWithDocument,
+  getBookDocuments,
+  updateDocumentMetadata,
+  deleteDocument,
+  downloadDocument,
+  upload
 } from '../../controllers/author/book.controller.js';
+import { verifyToken } from '../../middlewares/verifyToken.js';
+import { checkRole } from '../../middlewares/isAdmin.js';
 
 const router = express.Router();
 
-// Lấy danh sách sách
+// ===== Book CRUD Routes =====
 router.get('/', getBooks);
-
-// Lấy chi tiết sách
 router.get('/:id', getBookById);
+router.post('/', verifyToken, createBook);
+router.put('/:id', verifyToken, updateBook);
+router.delete('/:id', verifyToken, deleteBook);
 
-// Tạo sách mới (yêu cầu xác thực và quyền tác giả hoặc admin)
-router.post('/', verifyToken, hasRole(['author', 'admin']), createBook);
+// ===== Book Document Routes =====
+router.post('/document', verifyToken, upload.single('document'), uploadBookDocument);
+router.post('/with-document', verifyToken, upload.single('document'), createBookWithDocument);
+router.get('/:bookId/documents', getBookDocuments);
+router.patch('/document/:fileId', verifyToken, updateDocumentMetadata);
+router.delete('/document/:fileId', verifyToken, deleteDocument);
+router.get('/document/:fileId/download', verifyToken, downloadDocument);
 
-// Cập nhật sách (yêu cầu xác thực và quyền sở hữu hoặc admin)
-router.put('/:id', verifyToken, isOwner(async (req) => {
-    const { data } = await supabase
-        .from('books')
-        .select('author_id, authors:author_id (user_id)')
-        .eq('id', req.params.id)
-        .single();
-    return data?.authors?.user_id;
-}), updateBook);
-
-// Xóa sách (yêu cầu xác thực và quyền sở hữu hoặc admin)
-router.delete('/:id', verifyToken, isOwner(async (req) => {
-    const { data } = await supabase
-        .from('books')
-        .select('author_id, authors:author_id (user_id)')
-        .eq('id', req.params.id)
-        .single();
-    return data?.authors?.user_id;
-}), deleteBook);
+// ===== Admin Routes =====
+router.get('/admin/all', verifyToken, checkRole('admin'), getBooks);
 
 export default router;
