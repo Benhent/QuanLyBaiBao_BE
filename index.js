@@ -2,7 +2,7 @@ import express from "express";
 import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import passport from "passport";
-import session from "express-session";
+// import session from "express-session";
 import helmet from "helmet";
 import { connectDB } from "./db/connectDB.js";
 import corsConfig from "./utils/cors.config.js"; // Import cấu hình CORS
@@ -37,18 +37,18 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 // Cấu hình session
-app.use(
-  session({
-    secret: process.env.SESSION_SECRET,
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      secure: process.env.NODE_ENV,
-      httpOnly: true,
-      maxAge: 24 * 60 * 60 * 1000, // 24h
-    },
-  })
-);
+// app.use(
+//   session({
+//     secret: process.env.SESSION_SECRET,
+//     resave: false,
+//     saveUninitialized: false,
+//     cookie: {
+//       secure: process.env.NODE_ENV,
+//       httpOnly: true,
+//       maxAge: 24 * 60 * 60 * 1000, // 24h
+//     },
+//   })
+// );
 
 // Khởi tạo Passport
 app.use(passport.initialize());
