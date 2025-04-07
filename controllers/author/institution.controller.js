@@ -107,6 +107,15 @@ export const getInstitutionById = async (req, res) => {
 
 export const createInstitution = async (req, res) => {
   try {
+    // Check if user is admin
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        error: 'Forbidden',
+        message: 'You do not have permission to perform this action'
+      });
+    }
+
     const { name, type, country, city } = req.body;
     
     // Validate required fields
@@ -152,6 +161,14 @@ export const createInstitution = async (req, res) => {
 
 export const updateInstitution = async (req, res) => {
   try {
+    // Check if user is admin
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        error: 'Forbidden',
+        message: 'You do not have permission to perform this action'
+      });
+    }
     const { id } = req.params;
     const { name, type, country, city } = req.body;
 

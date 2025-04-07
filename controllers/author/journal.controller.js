@@ -202,6 +202,15 @@ export const getJournalById = async (req, res) => {
 
 export const createJournal = async (req, res) => {
   try {
+    // Check if user is admin or author
+    if (!req.user || !['admin', 'author'].includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        error: 'Forbidden',
+        message: 'You do not have permission to perform this action'
+      });
+    }
+    
     const { name, type, issn, language, publish_date } = req.body;
     
     // Validate required fields

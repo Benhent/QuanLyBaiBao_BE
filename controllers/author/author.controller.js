@@ -173,6 +173,15 @@ export const getAuthorById = async (req, res) => {
 
 export const createAuthor = async (req, res) => {
   try {
+    // Check if user is admin
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        error: 'Forbidden',
+        message: 'You do not have permission to perform this action'
+      });
+    }
+    
     const { 
       first_name, 
       last_name, 
